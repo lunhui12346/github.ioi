@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认知实验</title>
+    <style>
+        .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            padding: 20px; 
+            font-family: Arial, sans-serif;
+        }
+        .step { 
+            display: none; 
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .step.active { 
+            display: block; 
+        }
+        .question-img { 
+            max-width: 100%; 
+            height: auto; 
+            margin: 15px 0;
+            border: 1px solid #ddd;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input[type="text"], input[type="number"] {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        #dataOutput {
+            padding: 15px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: Consolas, monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .copy-btn {
+            background: #28a745;
+        }
+        .copy-btn:hover {
+            background: #218838;
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            input[type="text"], input[type="number"] {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 指导语 -->
+        <div id="step1" class="step active">
+            <h2>欢迎参与实验</h2>
+            <p>请完成两组推理题并估计时间，理解后请点击开始按钮</p>
+            <button onclick="startExp()">开始实验</button>
+        </div>
+
+        <!-- 题目页面 -->
+        <div id="step2" class="step"></div>
+        
+        <!-- 时间估计 -->
+        <div id="step3" class="step">
+            <h3>请估计您完成这组题目花费的时间（秒）</h3>
+            <input type="number" id="timeInput">
+            <button onclick="submitTime()">继续</button>
+        </div>
+
+        <!-- 数据展示 -->
+        <div id="finish" class="step">
+            <h2>感谢参与！请复制以下数据</h2>
+            <div id="dataOutput"></div>
+            <button class="copy-btn" onclick="copyData()">一键复制</button>
+            <p style="color:#666;font-size:0.9em">* 请确保主试已记录数据后再关闭页面</p>
+        </div>
+    </div>
+
+    <script>
+        // 实验配置
+        const config = {
+            group1: ["q1.jpg", "q2.jpg", "q3.jpg", "q4.jpg", "q5.jpg"],
+            group2: ["q6.jpg", "q7.jpg", "q8.jpg", "q9.jpg", "q10.jpg"]
+        };
+
+        // 实验数据存储
+        let currentStep = { group: 0, question: 0 };
+        let startTime;
+        const userData = {
+            id: generateID(),
+            answers: [[], []],
+            estimates: [null, null],
+            realTimes: [null, null]
+        };
+
+        // 生成用户ID (日期+随机字符)
+        function generateID() {
+            return Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+        }
+
+        // 开始实验
+        function startExp() {
+            startTime = Date.now();
+            loadQuestion();
+            switchStep("step2");
+        }
+
+        // 加载题目
+        function loadQuestion() {
+            const group = currentStep.group === 0 ? config.group1 : config.group2;
+            document.getElementById("step2").innerHTML = `
+                <h3>第 ${currentStep.group + 1} 组 - 题目 ${currentStep.question + 1}</h3>
+                <img src="images/${group[currentStep.question]}" class="question-img">
+                <input type="text" id="answerInput" placeholder="请输入答案" autocomplete="off">
+                <button onclick="nextQuestion()">${currentStep.question < 4 ? '下一题' : '提交答案'}</button>
+            `;
+        }
+
+        // 下一题处理
+        function nextQuestion() {
+            const answer = document.getElementById("answerInput").value.trim();
+            if (!answer) return alert("请填写答案后再继续");
+            
+            userData.answers[currentStep.group].push(answer);
+            
+            if (currentStep.question < 4) {
+                currentStep.question++;
+                loadQuestion();
+            } else {
+                userData.realTimes[currentStep.group] = Math.round((Date.now() - startTime)/1000);
+                switchStep("step3");
+            }
+        }
+
+        // 时间估计提交
+        function submitTime() {
+            const estimate = parseInt(document.getElementById("timeInput").value);
+            if (isNaN(estimate)) return alert("请输入有效数字");
+            
+            userData.estimates[currentStep.group] = estimate;
+            document.getElementById("timeInput").value = "";
+
+            if (currentStep.group === 0) {
+                currentStep = { group: 1, question: 0 };
+                startTime = Date.now();
+                loadQuestion();
+                switchStep("step2");
+            } else {
+                showData();
+                switchStep("finish");
+            }
+        }
+
+        // 显示数据
+        function showData() {
+            const data = {
+                "用户ID": userData.id,
+                "第一组答案": userData.answers[0].join(", "),
+                "第二组答案": userData.answers[1].join(", "),
+                "估计时间（秒）": `第一组: ${userData.estimates[0]}, 第二组: ${userData.estimates[1]}`,
+                "实际用时（秒）": `第一组: ${userData.realTimes[0]}, 第二组: ${userData.realTimes[1]}`
+            };
+            document.getElementById("dataOutput").textContent = JSON.stringify(data, null, 4);
+        }
+
+        // 切换步骤
+        function switchStep(stepId) {
+            document.querySelectorAll(".step").forEach(el => el.classList.remove("active"));
+            document.getElementById(stepId).classList.add("active");
+        }
+
+        // 复制数据
+        function copyData() {
+            const text = document.getElementById("dataOutput").textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("数据已复制到剪贴板！");
+            }).catch(() => {
+                prompt("复制失败，请手动选择复制：", text);
+            });
+        }
+    </script>
+</body>
+</html>
